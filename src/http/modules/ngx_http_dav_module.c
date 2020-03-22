@@ -356,12 +356,6 @@ ok:
 
     if (ngx_is_dir(&fi)) {
 
-        if (r->uri.data[r->uri.len - 1] != '/') {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, NGX_EISDIR,
-                          "DELETE \"%s\" failed", path.data);
-            return NGX_HTTP_CONFLICT;
-        }
-
         depth = ngx_http_dav_depth(r, NGX_HTTP_DAV_INFINITY_DEPTH);
 
         if (depth != NGX_HTTP_DAV_INFINITY_DEPTH) {
@@ -501,18 +495,10 @@ ngx_http_dav_mkcol_handler(ngx_http_request_t *r, ngx_http_dav_loc_conf_t *dlcf)
         return NGX_HTTP_UNSUPPORTED_MEDIA_TYPE;
     }
 
-    if (r->uri.data[r->uri.len - 1] != '/') {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "MKCOL can create a collection only");
-        return NGX_HTTP_CONFLICT;
-    }
-
     p = ngx_http_map_uri_to_path(r, &path, &root, 0);
     if (p == NULL) {
         return NGX_HTTP_INTERNAL_SERVER_ERROR;
     }
-
-    *(p - 1) = '\0';
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
                    "http mkcol path: \"%s\"", path.data);
@@ -539,7 +525,7 @@ ngx_http_dav_copy_move_handler(ngx_http_request_t *r)
     size_t                    len, root;
     ngx_err_t                 err;
     ngx_int_t                 rc, depth;
-    ngx_uint_t                overwrite, slash, dir, flags;
+    ngx_uint_t                overwrite, dir, flags;
     ngx_str_t                 path, uri, duri, args;
     ngx_tree_ctx_t            tree;
     ngx_copy_file_t           cf;
@@ -634,16 +620,6 @@ destination_done:
         goto invalid_destination;
     }
 
-    if ((r->uri.data[r->uri.len - 1] == '/' && *(last - 1) != '/')
-        || (r->uri.data[r->uri.len - 1] != '/' && *(last - 1) == '/'))
-    {
-        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "both URI \"%V\" and \"Destination\" URI \"%V\" "
-                      "should be either collections or non-collections",
-                      &r->uri, &dest->value);
-        return NGX_HTTP_CONFLICT;
-    }
-
     depth = ngx_http_dav_depth(r, NGX_HTTP_DAV_INFINITY_DEPTH);
 
     if (depth != NGX_HTTP_DAV_INFINITY_DEPTH) {
@@ -709,12 +685,8 @@ overwrite_done:
     copy.path.len--;  /* omit "\0" */
 
     if (copy.path.data[copy.path.len - 1] == '/') {
-        slash = 1;
         copy.path.len--;
         copy.path.data[copy.path.len] = '\0';
-
-    } else {
-        slash = 0;
     }
 
     ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
@@ -738,13 +710,6 @@ overwrite_done:
 
         /* destination exists */
 
-        if (ngx_is_dir(&fi) && !slash) {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "\"%V\" could not be %Ved to collection \"%V\"",
-                          &r->uri, &r->method_name, &dest->value);
-            return NGX_HTTP_CONFLICT;
-        }
-
         if (!overwrite) {
             ngx_log_error(NGX_LOG_ERR, r->connection->log, NGX_EEXIST,
                           "\"%s\" could not be created", copy.path.data);
@@ -761,12 +726,6 @@ overwrite_done:
     }
 
     if (ngx_is_dir(&fi)) {
-
-        if (r->uri.data[r->uri.len - 1] != '/') {
-            ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                          "\"%V\" is collection", &r->uri);
-            return NGX_HTTP_BAD_REQUEST;
-        }
 
         if (overwrite) {
             ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
